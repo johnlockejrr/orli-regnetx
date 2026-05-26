@@ -1,0 +1,46 @@
+# experiments/regnetx_multilingual_pretrain.yaml
+
+precision: bf16-mixed
+device: cuda:1           # your training GPU
+num_workers: 6           # tuned for i7-14700K + 6 workers as established
+num_threads: 4           # 6 workers × 4 threads = 24, fits 28 logical cores
+
+train:
+  training_data:
+    - /path/to/orli_train.lst
+  evaluation_data:
+    - /path/to/orli_val.lst
+  checkpoint_path: /path/to/orli_regnetx_pretrain
+
+  model_variant: regnetx
+
+  optimizer: AdamW
+  epochs: 32             # tiny uses 24; RegNetX-8GF has supervised ImageNet
+                         # weights (not FCMAE) so give it more epochs to adapt
+  lrate: 3e-4            # lower than tiny's 5e-4 — RegNetX encoder is coarser
+                         # to manuscript data than FCMAE-pretrained ConvNeXtV2,
+                         # a slightly lower peak LR stabilises early training
+  schedule: cosine
+  cos_t_max: 32          # must match epochs
+  cos_min_lr: 3e-6       # proportionally lower than tiny (5e-6) to match lrate
+  warmup: 1500           # longer than tiny's 1000 — mixed multilingual corpus
+                         # benefits from a slower ramp so the decoder sees all
+                         # scripts before the LR peaks
+  weight_decay: 1e-4
+
+  augment: true
+
+  batch_size: 2          # RTX 3090 24 GB — orli's autoregressive decoder is
+                         # much more memory-hungry than DBNet at 1280×960;
+                         # start at 2 and raise to 4 if VRAM allows
+  val_batch_size: 4
+  accumulate_grad_batches: 16   # effective batch = 2 × 16 = 32, same as tiny
+                                # (12 × 12 = 144 was on a larger multi-GPU rig)
+
+  image_size: [1280, 960]       # default from orli; matches the compile -r flag
+
+  # Keep all three orli-recommended features on — the ablations show these
+  # help, especially on diverse scripts where curve initialisation matters:
+  curve_fourier_features: true
+  anchor_embedding: true
+  direct_point_regression: false
