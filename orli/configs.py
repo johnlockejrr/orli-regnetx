@@ -54,11 +54,12 @@ MODEL_VARIANTS = {
     # ------------------------------------------------------------------
     # RegNetX-8GF variant
     # ------------------------------------------------------------------
-    # Uses torchvision RegNetX-8GF (IMAGENET1K_V2, 82.7 % top-1) instead
-    # of a timm ConvNeXtV2.  Channel widths at the selected stages are:
-    #   C3 (stride  8):  240 ch
-    #   C4 (stride 16):  720 ch
-    #   C5 (stride 32): 1920 ch
+    # Uses timm regnetx_080.tv2_in1k (ImageNet1K_V2, 82.7% top-1) —
+    # the same weights as torchvision RegNet_X_8GF_Weights.IMAGENET1K_V2.
+    # Channel widths at the selected stages:
+    #   C3 (stride  8):  240 ch  (timm idx 1)
+    #   C4 (stride 16):  720 ch  (timm idx 2)
+    #   C5 (stride 32): 1920 ch  (timm idx 3)
     # The OrliHybridNeck's input_proj (1×1 Conv2d per scale) absorbs the
     # different channel widths transparently — spatial sizes are identical
     # to the 'tiny' variant at any given image_size.
@@ -67,15 +68,18 @@ MODEL_VARIANTS = {
     # output_ds_factors) so decoder memory tokens have the same shape and
     # the decoder/regressor are fully interchangeable between variants.
     #
+    # No special wrapper needed — timm's features_only interface is used
+    # directly, identical to the ConvNeXtV2 variants.
+    #
     # LR note: configure_optimizers applies encoder_lr = lrate * 0.1.
     # RegNetX-8GF has supervised ImageNet weights (not FCMAE) so you may
     # want to increase the encoder LR fraction to ~0.2–0.3 for faster
-    # backbone adaptation on manuscript data.  This is a config-level
-    # tuning decision, not a code change.
+    # backbone adaptation on manuscript data.
     'regnetx': {
-        'encoder_name': 'regnetx_8gf',          # sentinel — not a timm name;
-                                                 # OrliModel detects this and builds
-                                                 # _RegNetX8GFEncoder instead.
+        'encoder_name': 'regnetx_080.tv2_in1k',  # timm name for RegNetX-8GF
+                                                  # ImageNet1K_V2 weights (82.7% top-1)
+                                                  # channels at idxs 1,2,3: 240, 720, 1920
+                                                  # strides at idxs 1,2,3: 8, 16, 32
         'encoder_idxs': (1, 2, 3),              # → C3, C4, C5
         'neck_num_layers': 1,
         'neck_num_heads': 8,
