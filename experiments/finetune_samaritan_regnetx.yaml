@@ -1,0 +1,80 @@
+# experiments/finetune_samaritan_regnetx.yaml
+# ---------------------------------------------------------------------------
+# Finetune the multilingual RegNetX-orli pretrain on Samaritan manuscripts.
+#
+# Usage:
+#   orli --config experiments/finetune_samaritan_regnetx.yaml train \
+#       --load orli_regnetx_pretrain/best_0.XXXX.safetensors
+#
+# Use --load (not --resume) to warm-start weights only and run a fresh
+# independent schedule from epoch 0.
+# ---------------------------------------------------------------------------
+
+precision: bf16-mixed
+device: cuda:1
+num_workers: 6
+num_threads: 4
+
+train:
+  training_data:
+    - /home/incognito/AI/seg_fixed/orli_regnetx/sam_arrow/train.arrow   # compiled with: orli compile -F train.lst -r 1280 960 --allow-textless
+  evaluation_data:
+    - /home/incognito/AI/seg_fixed/orli_regnetx/sam_arrow/val.arrow
+  checkpoint_path: /home/incognito/AI/seg_fixed/orli_regnetx/orli_samaritan_finetune
+
+  load: /home/incognito/AI/seg_fixed/orli_regnetx/orli_regnetx_pretrain/model.safetensors
+  model_variant: regnetx   # must match the pretrain — architecture is fixed
+
+  optimizer: AdamW
+
+  # -------------------------------------------------------------------------
+  # Schedule: short cosine, much lower peak LR than pretrain
+  # -------------------------------------------------------------------------
+  # The single most important finetune parameter is lrate.  At 6e-5 (5× lower
+  # than the pretrain 3e-4) the encoder moves slowly — it already knows what
+  # a text line looks like — while the decoder and regressor adapt to
+  # Samaritan-specific inter-line spacing and curve geometry.
+  # Too high → catastrophic forgetting of the multilingual signal.
+  # Too low → model never adapts to Samaritan glyph shapes.
+  epochs: 50
+  lrate: 6e-5
+  schedule: cosine
+  cos_t_max: 40            # must match epochs
+  cos_min_lr: 6e-7         # 1/100 of peak — gentle final annealing
+  warmup: 300              # short warmup: model is already trained
+  weight_decay: 1e-4
+  gradient_clip_val: 0.5   # tighter than pretrain — low LR means large norms
+                           # are more likely overfitting than noise
+
+  augment: true
+
+  # -------------------------------------------------------------------------
+  # Batch size: smaller dataset → smaller effective batch is fine
+  # -------------------------------------------------------------------------
+  # 1500 pages × 0.9 train split = 1350 train pages.
+  # batch_size=2, accumulate=8 → effective batch 16.
+  # Smaller than pretrain (32) to give more gradient updates per epoch
+  # on the small dataset, increasing the chance of seeing all pages.
+  batch_size: 2
+  val_batch_size: 4
+  accumulate_grad_batches: 8   # effective batch = 2 × 8 = 16
+
+  image_size: [1280, 960]      # must match pretrain and compile resolution
+
+  # Keep identical to pretrain — architecture flags must never change
+  # between pretrain and finetune on the same model.
+  curve_fourier_features: true
+  anchor_embedding: true
+  direct_point_regression: false
+
+  # -------------------------------------------------------------------------
+  # Early stopping
+  # -------------------------------------------------------------------------
+  # With only 1350 train pages the model can converge fast — sometimes in
+  # 10-15 epochs.  Early stopping prevents wasting time on a plateau.
+  quit: early
+  min_epochs: 10           # don't stop before epoch 10 even if val improves
+                           # immediately — Samaritan curves need a few epochs
+                           # to stabilise after the domain shift
+  lag: 10                  # stop after 10 validation rounds with no improvement
+  min_delta: 0.001         # ignore improvements smaller than 0.001 val_metric
