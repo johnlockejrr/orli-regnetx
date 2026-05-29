@@ -16,7 +16,6 @@ Three files were edited, nothing was removed:
 | `orli/orli.py` | Added `_RegNetXFeatureInfo`, `_RegNetX8GFEncoder` wrapper classes and a one-line branch in `OrliModel.__init__` to use them when `encoder_name == 'regnetx_8gf'` |
 | `orli/configs.py` | Added `'regnetx'` entry to `MODEL_VARIANTS` |
 | `orli/cli/train.py` | Added `'regnetx'` to `--model-variant` choices |
-| `pyproject.toml` | Added `torchvision>=0.20.0` dependency |
 
 Drop those four files into the orli source tree and reinstall.
 
@@ -36,7 +35,6 @@ cd orli
 #   pyproject.toml       → pyproject.toml
 
 pip install -e ".[dev]"
-# torchvision is now a declared dependency and will be installed automatically.
 # The RegNetX-8GF ImageNet weights (~200 MB) are downloaded on first run.
 ```
 
@@ -213,7 +211,7 @@ encoder moves very little). Phase 2 unlocks full fine-tuning at a lower peak LR.
 
 | Component | RegNetX variant | ConvNeXtV2-tiny (default) |
 |---|---|---|
-| Backbone | RegNetX-8GF (torchvision, 39 M params) | ConvNeXtV2-tiny (timm, 28 M params) |
+| Backbone | RegNetX-8GF (timm, 39 M params) | ConvNeXtV2-tiny (timm, 28 M params) |
 | Pretrain | ImageNet-1K V2 supervised | FCMAE self-supervised |
 | Selected stages | C3/C4/C5 (strides 8/16/32) | stages 1/2/3 (strides 8/16/32) |
 | Stage channels | 240 / 720 / 1920 | 192 / 384 / 768 |
