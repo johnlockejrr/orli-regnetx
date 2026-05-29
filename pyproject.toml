@@ -28,7 +28,6 @@ dependencies = [
     "timm",
     "python-bidi",
     "rich",
-    "torchvision>=0.20.0",
 ]
 
 [project.urls]
